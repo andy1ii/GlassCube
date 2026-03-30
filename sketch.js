@@ -1,7 +1,7 @@
 let previewImg, exportImg, img, originalLoadedImg; 
 let dimShader;
 let fileInput, aspectRatioSelect, bandFreqSlider;
-let blurAmountSlider, blurAngleSlider, spreadSlider, turbulenceSlider;
+let blurAmountSlider, frostAmountSlider, blurAngleSlider, spreadSlider, turbulenceSlider;
 let statusText, monotoneBtn;
 
 let currentExportW = 1920, currentExportH = 1080;
@@ -42,6 +42,7 @@ uniform sampler2D tex0;
 uniform vec2 resolution;
 
 uniform float amount;       
+uniform float frost;
 uniform float spread;       
 uniform float turbulence;   
 uniform float bandFrequency;
@@ -145,7 +146,7 @@ void main() {
     
     float iters = clamp(amount, 10.0, 60.0);
     float reflMix = (faceId == 2.0) ? 0.65 : 0.45; 
-    float frostIntensity = pow((amount - 1.0) / 59.0, 1.2); 
+    float frostIntensity = frost; 
 
     for (int i = 0; i < 60; i++) {
         if (float(i) >= iters) break;
@@ -259,6 +260,7 @@ function setup() {
 
   bandFreqSlider = select('#band-frequency');
   blurAmountSlider = select('#blur-amount');
+  frostAmountSlider = select('#frost-amount');
   spreadSlider = select('#spread-amount');
   turbulenceSlider = select('#turbulence-amount');
   blurAngleSlider = select('#blur-angle');
@@ -331,6 +333,7 @@ function draw() {
   dimShader.setUniform('patchAmount', 1.0);    
   dimShader.setUniform('maskHardness', 1.0);   
   dimShader.setUniform('amount', parseFloat(blurAmountSlider.value()));
+  dimShader.setUniform('frost', parseFloat(frostAmountSlider.value()));
   dimShader.setUniform('angle', parseFloat(blurAngleSlider.value()));
   dimShader.setUniform('spread', parseFloat(spreadSlider.value()));
   dimShader.setUniform('turbulence', parseFloat(turbulenceSlider.value()));
