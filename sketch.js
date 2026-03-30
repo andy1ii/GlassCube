@@ -135,7 +135,7 @@ void main() {
     float specDot = max(0.0, dot(surfaceNormal3D, lightVector));
     float specHighlight = pow(specDot, 20.0) * gloss;
 
-    // --- 5. REFRACTION & FROST SAMPLING ---
+    // --- 5. REFRACTION & BLUR SAMPLING ---
     float rotRad = radians(angle);
     mat2 rotMat = mat2(cos(rotRad), -sin(rotRad), sin(rotRad), cos(rotRad));
     baseReflectUV = (baseReflectUV - vec2(0.5)) * rotMat + vec2(0.5);
@@ -146,7 +146,9 @@ void main() {
     
     float iters = clamp(amount, 10.0, 60.0);
     float reflMix = (faceId == 2.0) ? 0.65 : 0.45; 
-    float frostIntensity = frost; 
+    
+    // The blur radius is tied to the 'amount' uniform (Blur Intensity slider)
+    float blurRadius = pow(clamp((amount - 1.0) / 59.0, 0.0, 1.0), 1.2); 
 
     for (int i = 0; i < 60; i++) {
         if (float(i) >= iters) break;
@@ -154,12 +156,13 @@ void main() {
         
         vec2 depthBlur = vec2(f * 0.005); 
         
-        float jitterX = (random(uv + vec2(float(i), 0.0)) - 0.5) * 0.08 * frostIntensity;
-        float jitterY = (random(uv + vec2(0.0, float(i))) - 0.5) * 0.08 * frostIntensity;
-        vec2 frostScatter = vec2(jitterX, jitterY);
+        // Random jitter for the multi-sample blur, scaling with blurRadius
+        float jitterX = (random(uv + vec2(float(i), 0.0)) - 0.5) * 0.08 * blurRadius;
+        float jitterY = (random(uv + vec2(0.0, float(i))) - 0.5) * 0.08 * blurRadius;
+        vec2 blurScatter = vec2(jitterX, jitterY);
 
-        vec2 sampleEnvUV = baseReflectUV + refractionDistortion + depthBlur + frostScatter;
-        vec2 sampleReflUV = internalReflectUV + (refractionDistortion * 1.5) + depthBlur + frostScatter;
+        vec2 sampleEnvUV = baseReflectUV + refractionDistortion + depthBlur + blurScatter;
+        vec2 sampleReflUV = internalReflectUV + (refractionDistortion * 1.5) + depthBlur + blurScatter;
 
         sampleEnvUV = abs(mod(sampleEnvUV - vec2(1.0), 2.0) - vec2(1.0));
         sampleReflUV = abs(mod(sampleReflUV - vec2(1.0), 2.0) - vec2(1.0));
@@ -199,7 +202,8 @@ void main() {
 
     vec3 outColor = mix(originalPixel.rgb, glassCube, mask);
     
-    float globalGrain = (random(uv + time) - 0.5) * (0.15 * frostIntensity);
+    // Static film grain is now correctly tied to the 'frost' uniform
+    float globalGrain = (random(uv + time) - 0.5) * (0.25 * frost);
     outColor += vec3(globalGrain);
     outColor = (outColor - 0.5) * 1.15 + 0.5;
 
