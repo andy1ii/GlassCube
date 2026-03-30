@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cinematic Blur Tool - Glass Cubes</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    
+    <aside class="controls-panel">
+      <h1>Faceted Cubes</h1>
+      <p class="subtitle">Export optimized for various aspect ratios.</p>
+
+      <div class="control-group">
+        <label for="file-input" class="file-upload-btn">1. Choose Image</label>
+        <input type="file" id="file-input" accept="image/png, image/jpeg, image/webp">
+      </div>
+
+      <div class="control-group">
+        <div class="label-row">
+          <label for="aspect-ratio">Aspect Ratio</label>
+        </div>
+        <select id="aspect-ratio" class="dropdown-select">
+          <option value="16:9">16:9 Widescreen (1920x1080)</option>
+          <option value="21:9">21:9 Ultrawide (2560x1080)</option>
+          <option value="9:16">9:16 Vertical (1080x1920)</option>
+          <option value="3:4">3:4 Portrait (1080x1440)</option>
+          <option value="4:5">4:5 Social (1080x1350)</option>
+          <option value="1:1">1:1 Square (1080x1080)</option>
+          <option value="4:3">4:3 Standard (1440x1080)</option>
+        </select>
+      </div>
+
+      <div class="divider"></div>
+      
+      <div class="control-group" id="group-band-freq">
+        <div class="label-row">
+          <label for="band-frequency" id="label-band-freq">1. Inner Subdivisions</label>
+        </div>
+        <input type="range" id="band-frequency" min="1" max="40" value="8" step="0.5">
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="control-group">
+        <div class="label-row">
+          <label for="blur-amount" id="label-blur-amount">2. Frost & Blur Intensity</label>
+        </div>
+        <input type="range" id="blur-amount" min="1" max="60" value="30">
+      </div>
+
+      <div class="control-group">
+        <div class="label-row">
+          <label for="spread-amount" id="label-spread">Refraction Index (Thickness)</label>
+        </div>
+        <input type="range" id="spread-amount" min="1" max="15" value="6" step="0.5">
+      </div>
+
+      <div class="control-group">
+        <div class="label-row">
+          <label for="turbulence-amount" id="label-turbulence">Specular Gloss (Highlights)</label>
+        </div>
+        <input type="range" id="turbulence-amount" min="0" max="10" value="1" step="0.1">
+      </div>
+
+      <div class="control-group">
+        <div class="label-row">
+          <label for="blur-angle" id="label-blur-angle">Internal Reflection Rotation</label>
+        </div>
+        <input type="range" id="blur-angle" min="0" max="360" value="15">
+      </div>
+
+      <div class="button-group">
+        <button id="monotone-btn" class="secondary-btn">Toggle B&W</button>
+        <button id="download-btn" class="primary-btn">Download Image</button>
+      </div>
+
+      <div class="status-box">
+        <p id="status">Waiting for image upload...</p>
+      </div>
+    </aside>
+
+    <main class="canvas-area">
+      <div id="canvas-container">
+        </div>
+    </main>
+    
+  </div>
+
+  <script src="sketch.js"></script>
+</body>
+</html>

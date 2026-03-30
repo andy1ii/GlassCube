@@ -1,0 +1,93 @@
+@font-face {
+  font-family: 'Items';
+  src: url('ItemsTextTrial-Regular.otf') format('opentype');
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Items', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  background-color: #121212; color: #e0e0e0; height: 100vh; overflow: hidden; 
+}
+.app-container { display: flex; height: 100vh; width: 100vw; }
+.controls-panel {
+  width: 320px; background-color: #1e1e1e; padding: 24px;
+  display: flex; flex-direction: column; gap: 16px;
+  border-right: 1px solid #333; box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+  z-index: 10; overflow-y: auto;
+}
+h1 { font-size: 1.5rem; font-weight: 600; color: #ffffff; margin-bottom: 4px; }
+.subtitle { font-size: 0.85rem; color: #888; line-height: 1.4; }
+.divider { height: 1px; background-color: #333; margin: 4px 0; }
+.control-group { display: flex; flex-direction: column; gap: 8px; }
+.label-row { display: flex; justify-content: space-between; font-size: 0.9rem; color: #bbb; }
+input[type="file"] { display: none; }
+.file-upload-btn {
+  display: block; width: 100%; padding: 12px; background-color: #333; color: #fff;
+  text-align: center; border-radius: 6px; cursor: pointer; border: 1px dashed #666;
+  transition: all 0.2s; font-weight: 500;
+}
+.file-upload-btn:hover { background-color: #444; border-color: #888; }
+
+.dropdown-select {
+  width: 100%;
+  padding: 10px;
+  background-color: #333;
+  color: #fff;
+  border: 1px solid #555;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dropdown-select:hover {
+  background-color: #444;
+  border-color: #888;
+}
+
+.dropdown-select option {
+  background-color: #222;
+  color: #fff;
+}
+
+input[type="range"] { -webkit-appearance: none; width: 100%; background: transparent; cursor: pointer; }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #ffffff; cursor: pointer; margin-top: -6px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+input[type="range"]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: #444; border-radius: 2px; }
+input[type="range"]:focus { outline: none; }
+
+.button-group { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+button { border: none; padding: 12px; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+.primary-btn { background-color: #4CAF50; color: white; }
+.primary-btn:hover { background-color: #45a049; }
+.secondary-btn { background-color: #333; color: white; border: 1px solid #555; }
+.secondary-btn:hover { background-color: #444; }
+
+.is-recording { background-color: #d32f2f !important; color: white !important; border-color: #f44336 !important; animation: btn-pulse 1.5s infinite; }
+@keyframes btn-pulse { 0% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(244, 67, 54, 0); } 100% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0); } }
+
+.status-box { margin-top: auto; padding: 12px; background-color: #2a2a2a; border-radius: 6px; border-left: 4px solid #4CAF50; }
+#status { font-size: 0.85rem; color: #ccc; line-height: 1.4; }
+
+.canvas-area { flex: 1; display: flex; justify-content: center; align-items: center; background-color: #0a0a0a; padding: 24px; overflow: auto; }
+#canvas-container { position: relative; display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; }
+
+#canvas-container canvas { 
+  box-shadow: 0 10px 30px rgba(0,0,0,0.8); 
+  max-width: 100%; 
+  max-height: 90vh; 
+  width: auto !important; 
+  height: auto !important; 
+  transition: opacity 0.3s; 
+}
+
+.hide-canvas canvas { opacity: 0.01; pointer-events: none; }
+
+#recording-overlay {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(15, 15, 15, 0.95);
+  border: 2px dashed #f44336; border-radius: 8px; display: none; flex-direction: column;
+  justify-content: center; align-items: center; z-index: 50; color: white; text-align: center; padding: 20px;
+}
+.pulse-text { color: #f44336; margin-bottom: 10px; animation: text-pulse 1.5s infinite; }
+@keyframes text-pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
