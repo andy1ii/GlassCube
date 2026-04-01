@@ -2,12 +2,13 @@ let previewImg, exportImg, img, originalLoadedImg;
 let dimShader;
 let fileInput, aspectRatioSelect, bandFreqSlider;
 let blurAmountSlider, frostAmountSlider, blurAngleSlider, spreadSlider, turbulenceSlider;
+let offsetXSlider, offsetYSlider, scaleSlider, rotationSlider;
+let chromaticSlider, vignetteSlider;
 let statusText, monotoneBtn;
 
 let currentExportW = 1920, currentExportH = 1080;
 let isMonotone = false;
 
-// --- HELPER GLSL FUNCTIONS ---
 const glslHelpers = `
 float random(vec2 st) { return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123); }
 
@@ -21,26 +22,15 @@ float noise (in vec2 st) {
     vec2 u = f*f*(3.0-2.0*f);
     return mix(a, b, u.x) + (c - a)* u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
 }
-
-float fbm (in vec2 st) {
-    float value = 0.0;
-    float amplitude = 0.5;
-    for (int i = 0; i < 4; i++) {
-        value += amplitude * noise(st);
-        st *= 2.0;
-        amplitude *= 0.5;
-    }
-    return value;
-}
 `;
 
-// --- SHADER: CLEAN SINGLE CUBE CORNER (SIMPLIFIED OPTICS) ---
 const dimFragShader = `
 precision mediump float;
 varying vec2 vTexCoord;
 uniform sampler2D tex0;
 uniform vec2 resolution;
 
+// Variables
 uniform float amount;       
 uniform float frost;
 uniform float spread;       
@@ -48,7 +38,13 @@ uniform float turbulence;
 uniform float bandFrequency;
 uniform float angle;        
 
-uniform float patchAmount;
+// New Composition Variables
+uniform vec2 centerOffset; 
+uniform float prismScale;
+uniform float prismRotation;
+uniform float chromAberration;
+uniform float vignette;
+
 uniform float maskHardness;
 uniform float time;
 uniform float u_monotone;
@@ -61,8 +57,16 @@ void main() {
     vec4 originalPixel = texture2D(tex0, uv);
 
     // --- 1. SINGLE CUBE CORNER MAPPING ---
-    vec2 toPixel = uv - vec2(0.5);
+    vec2 toPixel = uv - (vec2(0.5) + centerOffset);
     toPixel.x *= resolution.x / resolution.y; 
+
+    // APPLY SCALE
+    toPixel /= prismScale;
+
+    // APPLY GLOBAL TILT/ROTATION
+    float rotRadGlobal = radians(prismRotation);
+    mat2 globalRotMat = mat2(cos(rotRadGlobal), -sin(rotRadGlobal), sin(rotRadGlobal), cos(rotRadGlobal));
+    toPixel = globalRotMat * toPixel;
     
     float PI = 3.14159265359;
     float a = atan(toPixel.y, toPixel.x);
@@ -77,29 +81,29 @@ void main() {
     float cos30 = 0.8660254; 
     float sin30 = 0.5;
 
-    // The Y-shaped intersection creates 3 distinct giant walls
+    // Y-shaped intersection
     if (a >= PI / 2.0 && a < 7.0 * PI / 6.0) {
-        faceId = 1.0; // Left Wall
+        faceId = 1.0; 
         planeUV = vec2(-toPixel.x / cos30, toPixel.y + (-toPixel.x / cos30) * sin30);
         baseReflectUV = vec2(1.0 - uv.x, uv.y) + vec2(0.1, -0.05);
         internalReflectUV = vec2(1.0 - uv.x, uv.y);
-        faceNormal = vec2(0.4, -0.2); // Bends light to the right
+        faceNormal = vec2(0.4, -0.2); 
     } 
     else if (a >= 7.0 * PI / 6.0 && a < 11.0 * PI / 6.0) {
-        faceId = 2.0; // Floor
+        faceId = 2.0; 
         float px = toPixel.x / cos30;
         float py = -toPixel.y / sin30;
         planeUV = vec2((px + py) * 0.5, (-px + py) * 0.5);
         baseReflectUV = vec2(uv.x, 1.0 - uv.y) - vec2(0.0, 0.1);
         internalReflectUV = vec2(uv.x, 1.0 - uv.y);
-        faceNormal = vec2(0.0, -0.4); // Bends light up
+        faceNormal = vec2(0.0, -0.4); 
     } 
     else {
-        faceId = 3.0; // Right Wall
+        faceId = 3.0; 
         planeUV = vec2(toPixel.x / cos30, toPixel.y + (toPixel.x / cos30) * sin30);
         baseReflectUV = vec2(1.0 - uv.x, uv.y) - vec2(0.1, 0.05);
         internalReflectUV = vec2(1.0 - uv.x, uv.y);
-        faceNormal = vec2(-0.4, -0.2); // Bends light to the left
+        faceNormal = vec2(-0.4, -0.2); 
     }
 
     // --- 2. OPTIONAL INNER SUBDIVISIONS ---
@@ -107,11 +111,9 @@ void main() {
     vec2 gridUV = planeUV * scale;
     vec2 gridFract = fract(gridUV);
     
-    // Subtle bevel on the optional inner subdivisions
     vec2 cellDeriv = (gridFract - vec2(0.5)) * 2.0; 
     vec2 cellBevel = sign(cellDeriv) * pow(abs(cellDeriv), vec2(4.0)); 
     
-    // Combine base face normal with tiny micro bevels
     vec2 ridgeNormal = faceNormal + (cellBevel * 0.1 * turbulence);
     vec2 refractionDistortion = ridgeNormal * (spread * 0.05);
 
@@ -135,7 +137,7 @@ void main() {
     float specDot = max(0.0, dot(surfaceNormal3D, lightVector));
     float specHighlight = pow(specDot, 20.0) * gloss;
 
-    // --- 5. REFRACTION & BLUR SAMPLING ---
+    // --- 5. REFRACTION, BLUR & CHROMATIC ABERRATION ---
     float rotRad = radians(angle);
     mat2 rotMat = mat2(cos(rotRad), -sin(rotRad), sin(rotRad), cos(rotRad));
     baseReflectUV = (baseReflectUV - vec2(0.5)) * rotMat + vec2(0.5);
@@ -146,9 +148,10 @@ void main() {
     
     float iters = clamp(amount, 10.0, 60.0);
     float reflMix = (faceId == 2.0) ? 0.65 : 0.45; 
-    
-    // The blur radius is tied to the 'amount' uniform (Blur Intensity slider)
     float blurRadius = pow(clamp((amount - 1.0) / 59.0, 0.0, 1.0), 1.2); 
+
+    // CA Offset based on direction from center
+    float caStrength = chromAberration * 0.02;
 
     for (int i = 0; i < 60; i++) {
         if (float(i) >= iters) break;
@@ -156,7 +159,6 @@ void main() {
         
         vec2 depthBlur = vec2(f * 0.005); 
         
-        // Random jitter for the multi-sample blur, scaling with blurRadius
         float jitterX = (random(uv + vec2(float(i), 0.0)) - 0.5) * 0.08 * blurRadius;
         float jitterY = (random(uv + vec2(0.0, float(i))) - 0.5) * 0.08 * blurRadius;
         vec2 blurScatter = vec2(jitterX, jitterY);
@@ -167,8 +169,20 @@ void main() {
         sampleEnvUV = abs(mod(sampleEnvUV - vec2(1.0), 2.0) - vec2(1.0));
         sampleReflUV = abs(mod(sampleReflUV - vec2(1.0), 2.0) - vec2(1.0));
 
-        vec3 envSample = texture2D(tex0, sampleEnvUV).rgb;
-        vec3 reflSample = texture2D(tex0, sampleReflUV).rgb;
+        vec2 caDirEnv = normalize(sampleEnvUV - vec2(0.5)) * caStrength;
+        vec2 caDirRefl = normalize(sampleReflUV - vec2(0.5)) * caStrength;
+
+        // Sample RGB channels separately with offset for Chromatic Aberration
+        float envR = texture2D(tex0, sampleEnvUV + caDirEnv).r;
+        float envG = texture2D(tex0, sampleEnvUV).g;
+        float envB = texture2D(tex0, sampleEnvUV - caDirEnv).b;
+        
+        float reflR = texture2D(tex0, sampleReflUV + caDirRefl).r;
+        float reflG = texture2D(tex0, sampleReflUV).g;
+        float reflB = texture2D(tex0, sampleReflUV - caDirRefl).b;
+
+        vec3 envSample = vec3(envR, envG, envB);
+        vec3 reflSample = vec3(reflR, reflG, reflB);
 
         vec3 blended = mix(envSample, reflSample, reflMix);
         float weight = exp(-f * 2.0);
@@ -179,7 +193,7 @@ void main() {
     finalGlassColor /= totalWeight;
     finalGlassColor += vec3(specHighlight);
 
-    // --- 6. VERY SUBTLE SEAMS & STRUCTURE ---
+    // --- 6. SEAMS & STRUCTURE ---
     if (faceId == 1.0) finalGlassColor *= 1.15;      
     else if (faceId == 2.0) finalGlassColor *= 0.90; 
     else if (faceId == 3.0) finalGlassColor *= 1.05; 
@@ -197,17 +211,18 @@ void main() {
     glassCube += pow(mainGlint, 2.0) * 0.1 * vec3(1.0); 
     glassCube *= mix(1.0, 0.85, mainGlint); 
 
-    // --- 7. OUTER PORTAL MASK ---
-    float mask = 1.0; 
-
-    vec3 outColor = mix(originalPixel.rgb, glassCube, mask);
+    // --- 7. FINAL MIX & VIGNETTE ---
+    vec3 outColor = mix(originalPixel.rgb, glassCube, 1.0);
     
-    // Static film grain is now correctly tied to the 'frost' uniform
     float globalGrain = (random(uv + time) - 0.5) * (0.25 * frost);
     outColor += vec3(globalGrain);
     outColor = (outColor - 0.5) * 1.15 + 0.5;
 
-    // --- 8. BLACK AND WHITE TOGGLE ---
+    // Apply Vignette
+    float distFromCenter = distance(vTexCoord, vec2(0.5));
+    float vigEffect = smoothstep(1.2, 0.2 + (1.0 - vignette), distFromCenter);
+    outColor *= mix(1.0, vigEffect, vignette);
+
     float gray = dot(outColor, vec3(0.299, 0.587, 0.114));
     outColor = mix(outColor, vec3(gray), u_monotone);
 
@@ -268,6 +283,14 @@ function setup() {
   spreadSlider = select('#spread-amount');
   turbulenceSlider = select('#turbulence-amount');
   blurAngleSlider = select('#blur-angle');
+  
+  // New Controls
+  offsetXSlider = select('#offset-x');
+  offsetYSlider = select('#offset-y');
+  scaleSlider = select('#prism-scale');
+  rotationSlider = select('#prism-rotation');
+  chromaticSlider = select('#chromatic-amount');
+  vignetteSlider = select('#vignette-amount');
   
   monotoneBtn = select('#monotone-btn');
   monotoneBtn.mousePressed(() => {
@@ -334,7 +357,6 @@ function draw() {
   dimShader.setUniform('resolution', [width, height]);
   
   dimShader.setUniform('bandFrequency', parseFloat(bandFreqSlider.value()));
-  dimShader.setUniform('patchAmount', 1.0);    
   dimShader.setUniform('maskHardness', 1.0);   
   dimShader.setUniform('amount', parseFloat(blurAmountSlider.value()));
   dimShader.setUniform('frost', parseFloat(frostAmountSlider.value()));
@@ -342,6 +364,13 @@ function draw() {
   dimShader.setUniform('spread', parseFloat(spreadSlider.value()));
   dimShader.setUniform('turbulence', parseFloat(turbulenceSlider.value()));
   dimShader.setUniform('time', 1.0);
+  
+  // Feed new composition/optics uniforms
+  dimShader.setUniform('centerOffset', [parseFloat(offsetXSlider.value()), parseFloat(offsetYSlider.value())]);
+  dimShader.setUniform('prismScale', parseFloat(scaleSlider.value()));
+  dimShader.setUniform('prismRotation', parseFloat(rotationSlider.value()));
+  dimShader.setUniform('chromAberration', parseFloat(chromaticSlider.value()));
+  dimShader.setUniform('vignette', parseFloat(vignetteSlider.value()));
   
   dimShader.setUniform('u_monotone', isMonotone ? 1.0 : 0.0);
 
